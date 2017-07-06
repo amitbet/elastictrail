@@ -1,0 +1,28 @@
+{
+  "index_patterns" : [
+    {      
+      "es": {
+        "default_index": "logstash-*",
+        "allow_url_parameter": false       
+      },
+      "tail_interval_in_seconds": 10,
+      "es_index_time_offset_in_seconds": 0,
+      "display_timezone": "local",
+      "display_timestamp_format": "MMM DD HH:mm:ss.SSS",
+      "max_buckets": 500,
+      "nested_objects" : true,
+      "default_time_range_in_days" : 31,
+      "fields" : {
+        "mapping" : {
+            "timestamp" : "@timestamp",
+            "display_timestamp" : "timestamp,@timestamp",
+            "hostname" : "kubernetes.namespace_name",
+            "program": "kubernetes.container_name",
+            "level":"level",
+            "message": "message,log"
+        },
+        "message_format": "{{level}} : {{log}}"
+      }
+    }  
+  ]
+}

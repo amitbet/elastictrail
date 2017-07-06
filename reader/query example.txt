@@ -1,0 +1,9 @@
+{  
+   "query":{  
+      "query_string":{  
+         "analyze_wildcard":true,
+         "default_field":"log",
+         "query":"kubernetes.container_name:\"opb-container\""
+      }
+   },"size":10
+}
