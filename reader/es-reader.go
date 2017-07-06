@@ -148,7 +148,7 @@ func (reader *EsReader) Start() { // chan map[string]interface{}
 		sort.Strings(indices)
 		index := indices[len(indices)-1]
 
-		req2, err := json.Marshal(map[string]interface{}{
+		queryObj := map[string]interface{}{
 			//"index": reader.indexPrefix,
 			"size":   size,
 			"fields": append(reader.fieldNames, timeField),
@@ -160,13 +160,7 @@ func (reader *EsReader) Start() { // chan map[string]interface{}
 			},
 			"query": map[string]interface{}{
 				"filtered": map[string]interface{}{
-					// "query": map[string]interface{}{
-					// 	"query_string": map[string]interface{}{
-					// 		"analyze_wildcard": true,
-					// 		"default_field":    "log",
-					// 		"query":            "kubernetes.namespace_name:" + reader.filters["kubernetes.namespace_name"],
-					// 	},
-					// },
+
 					"filter": map[string]interface{}{
 						"bool": map[string]interface{}{
 							"must": []interface{}{
@@ -183,7 +177,26 @@ func (reader *EsReader) Start() { // chan map[string]interface{}
 					},
 				},
 			},
-		})
+		}
+		query := queryObj["query"].(map[string]interface{})
+		filter := query["filtered"].(map[string]interface{})
+
+		var sb bytes.Buffer
+		for key, value := range reader.filters {
+			sb.WriteString(key + ":" + value + " AND ")
+		}
+		qstr := sb.String()
+		qstr = qstr[:len(qstr)-5]
+
+		filter["query"] = map[string]interface{}{
+			"query_string": map[string]interface{}{
+				"analyze_wildcard": true,
+				"default_field":    "log",
+				"query":            qstr,
+			},
+		}
+
+		req2, err := json.Marshal(queryObj)
 
 		// req1, err := json.Marshal(map[string]interface{}{
 		// 	"index": reader.indexPrefix,

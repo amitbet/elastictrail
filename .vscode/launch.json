@@ -19,7 +19,7 @@
             },
             "windows": {
                 "env": {
-                    "GOPATH": "${env.USERPROFILE}\\Dropbox\\go"
+                    "GOPATH": "c:\\Users\\betzalel\\Dropbox\\go"
                 }
             },
             "showLog": true
