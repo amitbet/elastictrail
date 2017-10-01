@@ -24,7 +24,7 @@
             },
             "showLog": true
         },
-           {
+        {
             "name": "Launch Grouper Tests",
             "type": "go",
             "request": "launch",
@@ -37,7 +37,7 @@
             ],
             "osx": {
                 "env": {
-                    "GOPATH": "${env.HOME}/Dropbox/go"
+                    "GOPATH": "/Users/amitbet/Dropbox/go"
                 }
             },
             "windows": {

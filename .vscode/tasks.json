@@ -20,7 +20,7 @@
             "osx": {
                 "options": {
                     "env": {
-                        "GOPATH": "${env.HOME}/Dropbox/go"
+                        "GOPATH": "/Users/amitbet/Dropbox/go"
                     }
                 }
             },
