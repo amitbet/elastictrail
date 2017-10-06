@@ -18,6 +18,8 @@ func NewGrouperConsumer() *GrouperConsumer {
 
 var lineCount int
 
+func (consumer *GrouperConsumer) BatchDone() {}
+
 func (consumer *GrouperConsumer) Consume(line common.LogLine) error {
 	//fmt.Printf("%v\n", line)
 	//j, _ := json.Marshal(line.Content)

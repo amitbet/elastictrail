@@ -2,6 +2,8 @@ package consumer
 
 import (
 	"elastictrail/common"
+	"elastictrail/logger"
+	"errors"
 	"regexp"
 	"strconv"
 
@@ -12,22 +14,51 @@ import (
 type GaugeType int
 
 const (
-	GaugeTypeMatchCounter GaugeType = iota
+	GaugeTypeCountMatchesInTimespan GaugeType = iota
 	GaugeTypeExportMatchAsFloat
 )
 
 // format can be kubernetes of simple
 type PrometheusConsumer struct {
-	Format    string
-	RegexStr  string
-	GaugeType GaugeType
+	Format           string
+	RegexStr         string
+	GaugeType        GaugeType
+	GaugeName        string
+	GaugeDescription string
+	regex            *regexp.Regexp
+	gauge            prometheus.Gauge
+	value            float64
+}
+
+func (consumer *PrometheusConsumer) BatchDone() {
+
+	if consumer.GaugeType == GaugeTypeCountMatchesInTimespan {
+		if consumer.gauge != nil {
+			logger.Debugf("Updating gauge %s value: %f", consumer.GaugeName, consumer.value)
+			consumer.gauge.Set(consumer.value)
+			consumer.value = 0
+		}
+	}
 }
 
 func (consumer *PrometheusConsumer) Consume(line common.LogLine) error {
-	//fmt.Printf("%v\n", line)
-	//j, _ := json.Marshal(line.Content)
-	//fmt.Printf(">>line:%v\n", string(j))
 	var str string
+
+	//initialize gauge
+	if consumer.gauge == nil {
+		if consumer.GaugeName == "" {
+			logger.Error("PrometheusConsumer.Consume: Gauge set without a name, skipping!")
+			return errors.New("Gauge set without a name, skipping!")
+		}
+
+		if consumer.GaugeDescription == "" {
+			logger.Warn("Gauge set without a description, will use GaugeName instead: " + consumer.GaugeName)
+			consumer.GaugeDescription = consumer.GaugeName
+		}
+		consumer.gauge = prometheus.NewGauge(prometheus.GaugeOpts{Name: consumer.GaugeName, Help: consumer.GaugeDescription})
+		prometheus.MustRegister(consumer.gauge)
+	}
+
 	switch consumer.Format {
 	case "kubernetes":
 		str = line.GetField("@timestamp") + " " + line.GetField("kubernetes.container_name") + " NS: " + line.GetField("kubernetes.namespace_name") + " [" + line.GetField("level") + "] " + line.Message()
@@ -35,36 +66,34 @@ func (consumer *PrometheusConsumer) Consume(line common.LogLine) error {
 		str = line.GetField("message")
 	}
 
-	gauge := prometheus.NewGauge(prometheus.GaugeOpts{Name: "alive", Help: "Indicates the SRF farm liveliness 0 means dead!"})
-	prometheus.MustRegister(gauge)
-	re := regexp.MustCompile(consumer.RegexStr)
-	switch consumer.GaugeType {
-
-	case GaugeTypeMatchCounter:
-		retStr := re.FindString(str)
-		if retStr != "" {
-			gauge.Inc()
-		}
-	case GaugeTypeExportMatchAsFloat:
-		retStr := re.FindString(str)
-		intVal, err := strconv.ParseFloat(retStr, 64)
-
-		if err != nil {
-			return err
-		}
-		gauge.Set(intVal)
+	//logger.Debug("prom consumer consuming line! " + str)
+	//initialize stuff on the first line recieved
+	if consumer.regex == nil {
+		consumer.regex = regexp.MustCompile(consumer.RegexStr)
 	}
 
-	// if checkIsAlive(*svcAddr) {
-	// 	gauge.Set(1)
-	// } else {
-	// 	gauge.Set(0)
+	// if retStr != "" {
+	// 	logger.Debug("Regex search Found: " + retStr + " in line: " + str)
 	// }
 
-	// time.Sleep(10 * time.Second)
+	switch consumer.GaugeType {
+	case GaugeTypeCountMatchesInTimespan:
+		if consumer.regex.MatchString(str) {
+			consumer.value++
+		}
+	case GaugeTypeExportMatchAsFloat:
+		retMatch := consumer.regex.FindStringSubmatch(str)
+		if len(retMatch) > 0 {
+			val, err := strconv.ParseFloat(retMatch[1], 64)
 
-	// fmt.Printf("##line: %s\n", str)
-
+			if err != nil {
+				logger.Error("Parse float error while parsing: " + retMatch[1] + " in line: " + str)
+				return err
+			}
+			logger.Debugf("Updating gauge %s value: %f", consumer.GaugeName, val)
+			consumer.gauge.Set(val)
+		}
+	}
 	return nil
 }
 

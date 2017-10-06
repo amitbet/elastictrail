@@ -4,4 +4,5 @@ package common
 type LogConsumer interface {
 	Consume(line LogLine) error
 	Name() string
+	BatchDone()
 }

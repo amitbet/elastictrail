@@ -3,6 +3,7 @@ package reader
 import (
 	"bytes"
 	"elastictrail/common"
+
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"vncproxy/logger"
 )
 
 // func fatalf(msg string, args ...interface{}) {
@@ -66,20 +68,20 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 	if reader.PollintIntervalSecs == 0 {
 		reader.PollintIntervalSecs = 15
 	}
-	if reader.TimeWindowSecs == 0 {
-		reader.PollintIntervalSecs = 60
-	}
+	// if reader.TimeWindowSecs == 0 {
+	// 	reader.PollintIntervalSecs = 60
+	// }
 	if reader.ESPort == "" {
 		reader.ESPort = "9200"
 	}
 
 	if reader.ESHost == "" {
-		reader.ESHost = "localhost:9200"
+		reader.ESHost = "localhost"
 	}
 	if reader.IndexPrefix == "" {
 		reader.IndexPrefix = "logstash-"
 	}
-
+	lastTime := time.Now()
 	host := reader.ESHost + ":" + reader.ESPort
 	msgFields := StringArray{}
 	timeField := "@timestamp"
@@ -125,8 +127,6 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 		exFilter["bool"] = filter
 	}
 
-	startFromTime := time.Now().Add(time.Duration(reader.TimeWindowSecs))
-
 	var scheme string
 	if reader.UseSSL {
 		scheme = "https"
@@ -137,6 +137,13 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 
 	for {
 		url1 := fmt.Sprintf("%s/*/_stats", rootURL)
+
+		var startFromTime time.Time
+		if reader.TimeWindowSecs > 0 {
+			startFromTime = time.Now().Add(time.Duration(-reader.TimeWindowSecs) * time.Second)
+		} else {
+			startFromTime = lastTime
+		}
 
 		resp, err := http.Get(url1)
 		if err != nil {
@@ -172,11 +179,7 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 			},
 			"query": map[string]interface{}{
 				"filtered": map[string]interface{}{
-					"query_string": map[string]interface{}{
-						"analyze_wildcard": true,
-						"default_field":    "log",
-						"query":            reader.QueryString,
-					},
+
 					"filter": map[string]interface{}{
 						"bool": map[string]interface{}{
 							"must": []interface{}{
@@ -194,8 +197,8 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 				},
 			},
 		}
-		// query := queryObj["query"].(map[string]interface{})
-		// filter := query["filtered"].(map[string]interface{})
+		query := queryObj["query"].(map[string]interface{})
+		filter := query["filtered"].(map[string]interface{})
 
 		// var sb bytes.Buffer
 		// for key, value := range reader.filters {
@@ -204,13 +207,23 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 		// qstr := sb.String()
 		// qstr = qstr[:len(qstr)-5]
 
-		// filter["query"] = map[string]interface{}{
+		//filter["query"] = map[string]interface{}{
 		// 	"query_string": map[string]interface{}{
 		// 		"analyze_wildcard": true,
 		// 		"default_field":    "log",
 		// 		"query":            qstr,
 		// 	},
 		// }
+		if reader.QueryString != "" {
+
+			filter["query"] = map[string]interface{}{
+				"query_string": map[string]interface{}{
+					"analyze_wildcard": true,
+					"default_field":    "log",
+					"query":            reader.QueryString,
+				},
+			}
+		}
 
 		req2, err := json.Marshal(queryObj)
 
@@ -236,10 +249,20 @@ func (reader *EsPoller) Start() { // chan map[string]interface{}
 		resp.Body.Close()
 
 		lines := reader.handleQueryResults(results, useSource)
+		logger.Debugf("***** Got %d lines from query\n", len(lines))
 		for _, line := range lines {
+			if reader.TimeWindowSecs <= 0 {
+				lastTime, err = time.Parse(time.RFC3339Nano, line.GetField(timeField))
+			}
+			//linestr := line.GetField("@timestamp") + " " + line.GetField("kubernetes.container_name") + " NS: " + line.GetField("kubernetes.namespace_name") + " [" + line.GetField("level") + "] " + line.Message()
+			//fmt.Println("***** line: >> " + linestr)
 			for _, consumerInf := range reader.consumers {
 				consumerInf.lineChannel <- line
 			}
+		}
+
+		for _, consumerInf := range reader.consumers {
+			consumerInf.BatchDone()
 		}
 
 		time.Sleep(time.Duration(reader.PollintIntervalSecs) * time.Second)

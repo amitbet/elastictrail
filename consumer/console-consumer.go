@@ -29,3 +29,4 @@ func (consumer *ConsoleConsumer) Consume(line common.LogLine) error {
 func (consumer *ConsoleConsumer) Name() string {
 	return "console-consumer"
 }
+func (consumer *ConsoleConsumer) BatchDone() {}

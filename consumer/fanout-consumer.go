@@ -45,6 +45,12 @@ func (fc *FanOutConsumer) RegisterConsumer(value string, consumer common.LogCons
 	fc.ConsumerByValue[value] = &consumerInf
 }
 
+func (fc *FanOutConsumer) BatchDone() {
+	for _, child := range fc.ConsumerByValue {
+		child.BatchDone()
+	}
+}
+
 func (fc *FanOutConsumer) Consume(line common.LogLine) error {
 	val := line.GetField(fc.LogField)
 	consumer := fc.ConsumerByValue[val]
