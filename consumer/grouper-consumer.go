@@ -8,6 +8,7 @@ import (
 
 type GrouperConsumer struct {
 	groupper *AutoGroupper
+	common.ConsumerDictionary
 }
 
 func NewGrouperConsumer() *GrouperConsumer {
@@ -18,7 +19,12 @@ func NewGrouperConsumer() *GrouperConsumer {
 
 var lineCount int
 
-func (consumer *GrouperConsumer) BatchDone() {}
+func (consumer *GrouperConsumer) BatchDone() {
+	for _, group := range consumer.groupper.groups {
+		consumer.ConsumerDictionary.Distribute(group)
+	}
+	consumer.ConsumerDictionary.DistributeBatchDone()
+}
 
 func (consumer *GrouperConsumer) Consume(line common.LogLine) error {
 	//fmt.Printf("%v\n", line)

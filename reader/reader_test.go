@@ -4,6 +4,10 @@ import (
 	"elastictrail/consumer"
 	"encoding/json"
 	"io/ioutil"
+	"log"
+	"os"
+	"path"
+	"path/filepath"
 	"testing"
 	"vncproxy/logger"
 )
@@ -15,7 +19,7 @@ import (
 // 		esport:      "9200",
 // 		indexPrefix: "logstash-",
 // 		useSSL:      false,
-// 		fieldNames: []string{"message",
+// 		FieldNames: []string{"message",
 // 			"log",
 // 			"@timestamp",
 // 			"timestamp",
@@ -32,13 +36,13 @@ import (
 // }
 
 func TestAutoGrouper(t *testing.T) {
-	reader := EsReader{
+	reader := EsPoller{
 		//eshost: "elasticsearch-dev-1991374869.us-west-2.elb.amazonaws.com",
-		eshost:      "34.209.71.120",
-		esport:      "9200",
-		indexPrefix: "logstash-",
-		useSSL:      false,
-		fieldNames: []string{"message",
+		ESHost:      "localhost",
+		ESPort:      "9200",
+		IndexPrefix: "logstash-",
+		UseSSL:      false,
+		FieldNames: []string{"message",
 			"log",
 			"@timestamp",
 			"timestamp",
@@ -46,9 +50,12 @@ func TestAutoGrouper(t *testing.T) {
 			"kubernetes.container_name",
 			"kubernetes.namespace_name",
 		},
-		filters: map[string]string{
-			"kubernetes.namespace_name": "srf-integ-ga",
-		},
+		// filters: map[string]string{
+		// 	"kubernetes.namespace_name": "srf-integ-ga",
+		// },
+		PollintIntervalSecs: 10,
+		QueryString:         "kubernetes.namespace_name: srf AND level: (debug OR info)",
+		//TimeWindowSecs:      5,
 	}
 	reader.RegisterConsumer(consumer.NewGrouperConsumer())
 	reader.Start()
@@ -61,7 +68,7 @@ func TestPromExporterLineCounter(t *testing.T) {
 		ESPort:      "9200",
 		IndexPrefix: "logstash-",
 		UseSSL:      false,
-		fieldNames: []string{"message",
+		FieldNames: []string{"message",
 			"log",
 			"@timestamp",
 			"timestamp",
@@ -85,7 +92,7 @@ func TestPromExporterCapturingRegex(t *testing.T) {
 		ESPort:      "9200",
 		IndexPrefix: "logstash-",
 		UseSSL:      false,
-		fieldNames: []string{"message",
+		FieldNames: []string{"message",
 			"log",
 			"@timestamp",
 			"timestamp",
@@ -121,7 +128,15 @@ func TestPollerJsonConfig(t *testing.T) {
 
 	// b, _ := json.Marshal(conf1)
 	// fmt.Println(string(b))
-	jsonFile := "/Users/amitbet/Dropbox/go/src/elastictrail/reader/myConfig.json"
+
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	jsonFile := path.Join(path.Dir(dir), "myConfig.json")
+	logger.Debugf("reading file: ", jsonFile)
+	//jsonFile := "/Users/amitbet/Dropbox/go/src/elastictrail/reader/myConfig.json"
 	buf, err := ioutil.ReadFile(jsonFile)
 	if err != nil {
 		logger.Error("error reading file: ", jsonFile, err)
@@ -129,7 +144,7 @@ func TestPollerJsonConfig(t *testing.T) {
 	}
 	json2 := string(buf)
 
-	//json1 := "{\"pollingConfigurations\":[{\"interval\":15,\"timeWindow\":15,\"query\":\"level:(debug)\",\"gaugeConfigurations\":[{\"regex\":\"jobmanager\",\"type\":0, \"name\":\"srf_debug_counter_jobmanager\"},{\"regex\":\"testmanager\",\"type\":0, \"name\":\"srf_debug_counter_testmanager\"}]}]}"
+	//json1 := "{\"pollingConfigurations\\":[{\"interval\":15,\"timeWindow\":15,\"query\":\"level:(debug)\",\"gaugeConfigurations\":[{\"regex\":\"jobmanager\",\"type\":0, \"name\":\"srf_debug_counter_jobmanager\"},{\"regex\":\"testmanager\",\"type\":0, \"name\":\"srf_debug_counter_testmanager\"}]}]}"
 	m := LogExporterConfig{}
 
 	json.Unmarshal([]byte(json2), &m)

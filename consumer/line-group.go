@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 )
 
 type LineTerm struct {
@@ -16,7 +17,7 @@ type LineTerm struct {
 // LineGroup represents a group of log lines that have been bunched together by the algorithm
 type LineGroup struct {
 	Template              string
-	lines                 []string
+	lines                 map[string]bool
 	TermSet               map[string]*LineTerm //the actual terms that exist in the log line
 	TermCount             int                  //if a term exists several times this can be different than len(termSet)
 	separators            map[rune]bool
@@ -30,10 +31,31 @@ type LineGroup struct {
 	origTokenCount        int //number of terms upon group creation
 }
 
+// // represents a group (cluster) of log lines
+// type ESLogGroupLine struct {
+// 	Title     string
+// 	LineCount int
+// }
+
+// Message returns the first message field that exists in the line definition
+func (line *LineGroup) Message() string {
+	return line.Template
+}
+
+func (line *LineGroup) GetField(fieldName string) string {
+	return line.Template
+}
+
+func (line *LineGroup) Count() int {
+	return line.LineCount
+}
+
 // NewLineGroup creates a new line group
 func NewLineGroup(terms []string) *LineGroup {
+
 	prev := ""
 	lg := LineGroup{TermSet: map[string]*LineTerm{}}
+	lg.lines = make(map[string]bool, 2)
 	for _, term := range terms {
 		lg.TermSet[term] = &LineTerm{Term: term, Counter: 1, prevTerm: prev, prevTermCorrectCounter: 1}
 		prev = term
@@ -46,6 +68,7 @@ func NewLineGroup(terms []string) *LineGroup {
 	lg.pruneCycle = 5
 	lg.LineCount = 1
 	lg.pruneCycleWidening = 3
+	lg.generateTemplate()
 	return &lg
 }
 
@@ -69,33 +92,47 @@ func (lg *LineGroup) String() string {
 		terms = ""
 	}
 	linestr := ""
-	for i, l := range lg.lines {
+	i := 0
+	for l := range lg.lines {
 		linestr += l + "\n"
+		i++
 		if i > 3 {
 			break
 		}
 	}
 
-	return fmt.Sprintf("lines:%d, pruneCount: %d, terms(%d): %s lines:\n%s", lg.LineCount, lg.pruneCounter, len(lg.TermSet), terms, linestr)
+	return fmt.Sprintf("template: %s\n lines:%d, pruneCount: %d, terms(%d): %s lines:\n%s", lg.Template, lg.LineCount, lg.pruneCounter, len(lg.TermSet), terms, linestr)
 }
 
 // pruneTerms removes terms with low grades from the group and may raise the threshold for acceptance
-func (lg *LineGroup) pruneTerms() {
+func (lg *LineGroup) tryPruneTerms() bool {
 	// calculating term grade out of all terms consumed gives more importance to the terms that are always presnet and filters out passing visitors
+	termsForDeletion := []*LineTerm{}
+
 	for _, term := range lg.TermSet {
 		termSeenGrade := float32(term.Counter) / float32(lg.LineCount)
 
 		if termSeenGrade < lg.termDeletionThreshold {
+			termsForDeletion = append(termsForDeletion, term)
+		}
+		//set some conditions so we don't lose the group's identity for a stray line that slips in..
+		if lg.TermCount-len(termsForDeletion) <= 0 || len(termsForDeletion) > 3 {
+			return false
+		}
+
+		for _, term1 := range termsForDeletion {
 			//remove the term instances from the global counter
-			lg.totalTermsConsumed -= term.Counter
+			lg.totalTermsConsumed -= term1.Counter
 			//remove the term from set
-			delete(lg.TermSet, term.Term)
+			delete(lg.TermSet, term1.Term)
 			//decrease term count
 			lg.TermCount--
+			lg.generateTemplate()
 		}
 	}
 	lg.pruneCounter++
 	lg.pruneCycle += 3
+	return true
 }
 
 func (lg *LineGroup) CanAddByTerms(terms map[string]*LineTerm) bool {
@@ -154,10 +191,47 @@ func (lg *LineGroup) TryAddLine(terms []string) bool {
 			}
 		}
 		if lg.LineCount%lg.pruneCycle == 0 {
-			lg.pruneTerms()
+			return lg.tryPruneTerms()
 		}
 		return true
 	}
 	return false
 
+}
+
+func (lg *LineGroup) generateTemplate() {
+	if len(lg.lines) == 0 {
+		return
+	}
+	var line = ""
+	for ln := range lg.lines {
+		line = ln
+		break
+	}
+
+	//logger.Debug(">>>>>>> line:" + line)
+
+	lg.Template = "*"
+	tokens := SplitWithMultiDelims(line, "`:\\/;'=-_+~<>[]{}!@#$%^&*().,?\"| \t\n")
+	for _, t := range tokens {
+		if groupTerm := lg.TermSet[t]; groupTerm != nil {
+			//replace all
+			//lg.Template = strings.Replace(lg.Template, t, "*", 1)
+			lg.Template += groupTerm.Term + "*"
+		}
+	}
+	//logger.Debug(">>>>>>> temp:" + lg.Template)
+}
+
+func SplitWithMultiDelims(input string, delims string) []string {
+	delimiters := make(map[rune]bool)
+	for _, ru := range delims {
+		delimiters[ru] = true
+	}
+
+	SplitFunc := func(r rune) bool {
+		return delimiters[r]
+	}
+
+	return strings.FieldsFunc(input, SplitFunc)
 }

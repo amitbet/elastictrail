@@ -1,59 +1,60 @@
 {
     "pollingConfigurations": [
         {
-            "interval": 5,
-            "timeWindow": 5,
-            "query": "level:(debug OR info) AND kubernetes.namespace_name: srf",
+            "interval": 15,
+            "timeWindow": -1,
+            "printLines": true,
+            "query": "level:(error) AND kubernetes.namespace_name: srf",
             "gaugeConfigurations": [
                 {
                     "regex": "jobmanager",
                     "type": 0,
-                    "name": "srf_debug_counter_jobmanager"
+                    "name": "srf_log_error_counter_jobmanager"
                 },
                 {
                     "regex": "testmanager",
                     "type": 0,
-                    "name": "srf_debug_counter_testmanager"
+                    "name": "srf_log_error_counter_testmanager"
                 },
                 {
                     "regex": "gateway",
                     "type": 0,
-                    "name": "srf_debug_counter_gateway"
+                    "name": "srf_log_error_counter_gateway"
                 },
                 {
                     "regex": "storage",
                     "type": 0,
-                    "name": "srf_debug_counter_storage"
+                    "name": "srf_log_error_counter_storage"
                 },
                 {
                     "regex": "vncproxy",
                     "type": 0,
-                    "name": "srf_debug_counter_vncproxy"
+                    "name": "srf_log_error_counter_vncproxy"
                 },
                 {
                     "regex": "opb",
                     "type": 0,
-                    "name": "srf_debug_counter_opb"
+                    "name": "srf_log_error_counter_opb"
                 },
                 {
                     "regex": "browserlab",
                     "type": 0,
-                    "name": "srf_debug_counter_browserlab"
+                    "name": "srf_log_error_counter_browserlab"
                 },
                 {
                     "regex": "security",
                     "type": 0,
-                    "name": "srf_debug_counter_security"
+                    "name": "srf_log_error_counter_security"
                 },
                 {
                     "regex": "executionengine",
                     "type": 0,
-                    "name": "srf_debug_counter_executionengine"
+                    "name": "srf_log_error_counter_executionengine"
                 },
                 {
                     "regex": "gatekeeper",
                     "type": 0,
-                    "name": "srf_debug_counter_gatekeeper"
+                    "name": "srf_log_error_counter_gatekeeper"
                 }
             ]
         }

@@ -30,6 +30,17 @@ func TestWordParsing(t *testing.T) {
 	statsdLine := "     [32m'statsd-global.packets_received'[39m: [33m0[39m,\n"
 	terms = groupper.getWordTerms(statsdLine)
 	fmt.Println(terms)
+
+	line := "BasicFilter.composeFilter - Unknown filterKey: TENANTID"
+	terms = groupper.getWordTerms(line)
+	fmt.Println(terms)
+	line = "INVOKE Start. DispID = 6,ConnectionIndex = 0 Func=CProxy_IQTASUnitExecutionEngineEvents<class CQTASUnitExecutionEngine>::FireHelper File=e:\\ft\\qtp\\win32_release\\14.2.3667.0_clean\\qtp\\backend\\executionengine\\app\\qtexecutionengine\\qtasunitexecutionenginecp.h Line=43 ThreadID=6848"
+	terms = groupper.getWordTerms(line)
+	fmt.Println(terms)
+
+	tokens := SplitWithMultiDelims(line, "`:\\/;'=-_+~<>[]{}!@#$%^&*().,?\"| \t\n")
+	fmt.Println(tokens)
+
 }
 func TestMain(m *testing.M) {
 	testSetupFunction()
@@ -72,11 +83,15 @@ func TestAutoGrouper(t *testing.T) {
 	}
 }
 
-func TestFanOut(t *testing.T) {
-	consumer := FanOutConsumer{LogField: "aType", autoCreate: &AutoCreateConfig{consumerType: "Console"}}
-
-	for _, l := range lines {
-		consumer.Consume(l)
-	}
-
+func TestLineGroup(t *testing.T) {
+	ag := NewAutoGroupper()
+	//GetWordTerms("the quick brown fox jumped(over)the-lazy-dog")
+	lineMessage := "- remove JSON data from storage: 382993336 Func=MobileRtidUtils::JsonDataStorage::Remove File=e:\\ft\\qtp\\win32_release\\14.2.3667.0_clean\\qtp\\addins\\mobilepackage\\app\\mobilepackage\\MobileRtidUtils.h Line=78 ThreadID=652"
+	terms := ag.getWordTerms(lineMessage)
+	lg := NewLineGroup(terms)
+	//lg.TryAddLine(terms)
+	lg.lines = append(lg.lines, lineMessage)
+	ag.lineCount++
+	lg.generateTemplate()
+	fmt.Println(lg.Template)
 }

@@ -20,6 +20,7 @@ type PollingConfig struct {
 	TimeWindowSecs      int           `json:"timeWindow"`
 	Query               string        `json:"query"`
 	GaugeConfigs        []GaugeConfig `json:"gaugeConfigurations"`
+	PrintLines          bool          `json:"printLines"`
 }
 
 type LogExporterConfig struct {
@@ -33,7 +34,8 @@ func (conf *PollingConfig) Run() {
 		ESPort:      "9200",
 		IndexPrefix: "logstash-",
 		UseSSL:      false,
-		fieldNames: []string{"message",
+		PrintLines:  conf.PrintLines,
+		FieldNames: []string{"message",
 			"log",
 			"@timestamp",
 			"timestamp",

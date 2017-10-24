@@ -101,16 +101,29 @@ func (ag *AutoGroupper) getWordTerms(line string) (terms []string) {
 			runes = append(runes, ch)
 		}
 	}
+	//add last term
+	if len(runes) > 0 {
+		term := string(runes)
 
+		numericCount := countNumericChars(term)
+		numericRatio := float32(numericCount) / float32(len(term))
+		term = strings.Trim(term, string([]rune{27})+"\t\r\n ")
+		//strings.TrimSpace()
+		if runes != nil && term != "" && len(term) > 0 && numericRatio <= ag.numericCharAcceptRatio {
+			terms = append(terms, term)
+			order++
+		}
+	}
 	return terms
 }
 
 // FindGroup tries to match the given line to existing groups, if a match is not found, the line creates a new group
 func (ag *AutoGroupper) FindGroup(line common.LogLine) {
-	terms := ag.getWordTerms(line.Message())
+	message := line.Message()
+	terms := ag.getWordTerms(message)
 	for _, group := range ag.groups {
 		if group.TryAddLine(terms) {
-			group.lines = append(group.lines, line.Message())
+			group.lines[message] = true
 			ag.lineCount++
 
 			if ag.lineCount%99 == 0 {
@@ -121,9 +134,11 @@ func (ag *AutoGroupper) FindGroup(line common.LogLine) {
 	}
 
 	//no group found yet - create a new one
-	group := NewLineGroup(terms)
-	group.lines = append(group.lines, line.Message())
-	ag.lineCount++
-
-	ag.groups = append(ag.groups, group)
+	if len(terms) > 0 {
+		group := NewLineGroup(terms)
+		group.lines[message] = true
+		ag.lineCount++
+		group.generateTemplate()
+		ag.groups = append(ag.groups, group)
+	}
 }

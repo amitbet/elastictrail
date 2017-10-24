@@ -25,11 +25,7 @@
                 }
             },
             "windows": {
-                "options": {
-                    "env": {
-                        "GOPATH": "${env.USERPROFILE}\\Dropbox\\go"
-                    }
-                }
+           
             },
             "isBuildCommand": true,
             "problemMatcher": "$go"

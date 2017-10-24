@@ -4,6 +4,9 @@ type LogLine interface {
 	Message() string
 	GetField(fieldName string) string
 }
+type Countable interface {
+	Count() int
+}
 
 // LogLine is a representation of one log line with several dynamic property fields
 type ESLogLine struct {
@@ -12,6 +15,7 @@ type ESLogLine struct {
 	timeFields    []string
 	levelFields   []string
 }
+
 
 func NewESLogLine(
 	content map[string]interface{},

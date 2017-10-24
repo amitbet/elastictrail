@@ -36,6 +36,6 @@ func main() {
 
 	json.Unmarshal([]byte(jsonStr), &m)
 
-	logger.Info("starting polling process")
+	logger.Info("starting polling processes with config:" + jsonStr)
 	m.Run()
 }

@@ -41,9 +41,7 @@
                 }
             },
             "windows": {
-                "env": {
-                    "GOPATH": "${env.USERPROFILE}\\Dropbox\\go"
-                }
+    
             },
             "showLog": true
         },
@@ -58,13 +56,11 @@
             "program": "${workspaceRoot}/",
             "osx": {
                 "env": {
-                    "GOPATH": "${env.HOME}/Dropbox/go"
+                    "GOPATH": "/Users/amitbet/Dropbox/go"
                 }
             },
             "windows": {
-                "env": {
-                    "GOPATH": "${env.USERPROFILE}\\Dropbox\\go"
-                }
+    
             },
             "args": [],
             "showLog": true
