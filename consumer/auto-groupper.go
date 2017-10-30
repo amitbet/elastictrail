@@ -3,14 +3,12 @@ package consumer
 import (
 	"elastictrail/common"
 	"sort"
-	"strings"
 )
 
 type AutoGroupper struct {
-	groups                 []*LineGroup
-	numericCharAcceptRatio float32 // the maximum ratio of numbers/other chars in a term (more will delete the term)
-	separators             map[rune]bool
-	lineCount              int
+	groups []*LineGroup
+	//numericCharAcceptRatio float32 // the maximum ratio of numbers/other chars in a term (more will delete the term)
+	lineCount int
 }
 
 type ByLineCount []*LineGroup
@@ -22,12 +20,8 @@ func (a ByLineCount) Less(i, j int) bool { return a[i].LineCount < a[j].LineCoun
 func NewAutoGroupper() *AutoGroupper {
 
 	auto := AutoGroupper{groups: []*LineGroup{}}
-	strSeparators := "`:\\/;'=-_+~<>[]{}!@#$%^&*().,?\"| \t\n"
-	auto.separators = map[rune]bool{}
-	for _, sep := range strSeparators {
-		auto.separators[sep] = true
-	}
-	auto.numericCharAcceptRatio = 0.2
+
+	//auto.numericCharAcceptRatio = 0.2
 	return &auto
 }
 
@@ -69,61 +63,16 @@ func (ag *AutoGroupper) Consolidate() {
 		}
 	}
 
-}
-func countNumericChars(term string) int {
-	numCounter := 0
-	for _, ch := range term {
-		if ch >= '0' && ch <= '9' {
-			numCounter++
-		}
-	}
-	return numCounter
-}
-
-func (ag *AutoGroupper) getWordTerms(line string) (terms []string) {
-	terms = []string{}
-
-	runes := []rune{}
-	order := 1
-	for _, ch := range line {
-		if ag.separators[ch] {
-			term := string(runes)
-			numericCount := countNumericChars(term)
-			numericRatio := float32(numericCount) / float32(len(term))
-			term = strings.Trim(term, string([]rune{27})+"\t\r\n ")
-			//strings.TrimSpace()
-			if runes != nil && term != "" && len(term) > 0 && numericRatio <= ag.numericCharAcceptRatio {
-				terms = append(terms, term)
-				order++
-			}
-			runes = []rune{}
-		} else {
-			runes = append(runes, ch)
-		}
-	}
-	//add last term
-	if len(runes) > 0 {
-		term := string(runes)
-
-		numericCount := countNumericChars(term)
-		numericRatio := float32(numericCount) / float32(len(term))
-		term = strings.Trim(term, string([]rune{27})+"\t\r\n ")
-		//strings.TrimSpace()
-		if runes != nil && term != "" && len(term) > 0 && numericRatio <= ag.numericCharAcceptRatio {
-			terms = append(terms, term)
-			order++
-		}
-	}
-	return terms
+	//sort the group list after consolidation
+	sort.Sort(ByLineCount(ag.groups))
 }
 
 // FindGroup tries to match the given line to existing groups, if a match is not found, the line creates a new group
 func (ag *AutoGroupper) FindGroup(line common.LogLine) {
 	message := line.Message()
-	terms := ag.getWordTerms(message)
-	for _, group := range ag.groups {
-		if group.TryAddLine(terms) {
-			group.lines[message] = true
+	for _, lg := range ag.groups {
+		if lg.TryAddLine(line) {
+			lg.lines[message] = true
 			ag.lineCount++
 
 			if ag.lineCount%99 == 0 {
@@ -134,11 +83,11 @@ func (ag *AutoGroupper) FindGroup(line common.LogLine) {
 	}
 
 	//no group found yet - create a new one
-	if len(terms) > 0 {
-		group := NewLineGroup(terms)
-		group.lines[message] = true
+	if len(line.GetTerms()) > 0 {
+		lg := NewLineGroup(line)
+		lg.lines[message] = true
 		ag.lineCount++
-		group.generateTemplate()
-		ag.groups = append(ag.groups, group)
+		lg.generateTemplate(false)
+		ag.groups = append(ag.groups, lg)
 	}
 }

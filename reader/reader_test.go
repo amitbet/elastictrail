@@ -2,6 +2,7 @@ package reader
 
 import (
 	"elastictrail/consumer"
+	"elastictrail/logger"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
-	"vncproxy/logger"
 )
 
 //import "elastictrail/consumer"
@@ -62,27 +62,47 @@ func TestAutoGrouper(t *testing.T) {
 }
 
 func TestPromExporterLineCounter(t *testing.T) {
-	reader := EsPoller{
-		//eshost: "elasticsearch-dev-1991374869.us-west-2.elb.amazonaws.com",
-		ESHost:      "localhost",
-		ESPort:      "9200",
-		IndexPrefix: "logstash-",
-		UseSSL:      false,
-		FieldNames: []string{"message",
-			"log",
-			"@timestamp",
-			"timestamp",
-			"level",
-			"kubernetes.container_name",
-			"kubernetes.namespace_name",
-		},
-		PollintIntervalSecs: 2,
-		QueryString:         "level: (debug OR info)",
-		TimeWindowSecs:      5,
-	}
+	// reader := EsPoller{
+	// 	//eshost: "elasticsearch-dev-1991374869.us-west-2.elb.amazonaws.com",
+	// 	ESHost:      "localhost",
+	// 	ESPort:      "9200",
+	// 	IndexPrefix: "logstash-",
+	// 	UseSSL:      false,
+	// 	FieldNames: []string{
+	// 		"message",
+	// 		"log",
+	// 		"@timestamp",
+	// 		"timestamp",
+	// 		"level",
+	// 		"kubernetes.container_name",
+	// 		"kubernetes.namespace_name",
+	// 	},
+	// 	PollintIntervalSecs: 2,
+	// 	QueryString:         "level: (debug OR info)",
+	// 	TimeWindowSecs:      5,
+	// }
 	//reader.RegisterConsumer(&consumer.ConsoleConsumer{Format: "kubernetes"})
-	reader.RegisterConsumer(&consumer.PrometheusConsumer{Format: "kubernetes", GaugeType: consumer.GaugeTypeCountMatchesInTimespan, RegexStr: ".", GaugeName: "testLogCounterGauge"})
+	reader := MockReader{
+		Lines: []string{
+			"!!MylineMessage!!",
+			"memessage",
+			"[debug] some log line!",
+		},
+	}
+
+	promExporter := &consumer.PrometheusConsumer{
+		Format:    "--=={{message}}==--",
+		GaugeType: consumer.GaugeTypeCountMatchesInTimespan,
+		RegexStr:  ".",
+		GaugeName: "testLogCounterGauge",
+	}
+	reader.RegisterConsumer(promExporter)
+
 	reader.Start()
+
+	// if promExporter.Gauge != 3 {
+	// 	t.Error("recieved incorrect value")
+	// }
 }
 
 func TestPromExporterCapturingRegex(t *testing.T) {
@@ -92,7 +112,8 @@ func TestPromExporterCapturingRegex(t *testing.T) {
 		ESPort:      "9200",
 		IndexPrefix: "logstash-",
 		UseSSL:      false,
-		FieldNames: []string{"message",
+		FieldNames: []string{
+			"message",
 			"log",
 			"@timestamp",
 			"timestamp",

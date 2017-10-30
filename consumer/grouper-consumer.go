@@ -20,9 +20,9 @@ func NewGrouperConsumer() *GrouperConsumer {
 var lineCount int
 
 func (consumer *GrouperConsumer) BatchDone() {
-	for _, group := range consumer.groupper.groups {
-		consumer.ConsumerDictionary.Distribute(group)
-	}
+	// for _, group := range consumer.groupper.groups {
+	// 	consumer.ConsumerDictionary.Distribute(group)
+	// }
 	consumer.ConsumerDictionary.DistributeBatchDone()
 }
 

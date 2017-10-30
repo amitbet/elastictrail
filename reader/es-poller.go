@@ -22,29 +22,6 @@ func fatalf(msg string, args ...interface{}) {
 	os.Exit(2)
 }
 
-// split string and parse to terms for query filter
-func getTerms(args string) []map[string]interface{} {
-	terms := []map[string]interface{}{}
-	for k, v := range parsePairs(args) {
-		terms = append(terms, map[string]interface{}{"term": map[string]interface{}{k: v}})
-	}
-	return terms
-}
-
-// split string and parse to key-value pairs
-func parsePairs(args string) map[string]string {
-	exkv := map[string]string{}
-	for _, pair := range strings.Split(args, ",") {
-		kv := strings.Split(pair, ":")
-		if _, ok := exkv[kv[0]]; ok {
-			exkv[kv[0]] = exkv[kv[0]]
-		} else {
-			exkv[kv[0]] = string(kv[1])
-		}
-	}
-	return exkv
-}
-
 //StringArray implements flag.Value interface
 type StringArray []string
 

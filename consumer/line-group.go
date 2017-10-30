@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"elastictrail/common"
 	"fmt"
 	"math"
 	"strconv"
@@ -51,8 +52,8 @@ func (line *LineGroup) Count() int {
 }
 
 // NewLineGroup creates a new line group
-func NewLineGroup(terms []string) *LineGroup {
-
+func NewLineGroup(ln common.LogLine) *LineGroup {
+	terms := ln.GetTerms()
 	prev := ""
 	lg := LineGroup{TermSet: map[string]*LineTerm{}}
 	lg.lines = make(map[string]bool, 2)
@@ -68,15 +69,36 @@ func NewLineGroup(terms []string) *LineGroup {
 	lg.pruneCycle = 5
 	lg.LineCount = 1
 	lg.pruneCycleWidening = 3
-	lg.generateTemplate()
+	//lg.maxNumberOfDeletedTerms
+	lg.generateTemplate(false)
 	return &lg
 }
 
 func (lg *LineGroup) TryConsumeGroup(other *LineGroup) bool {
-	if lg.CanAddByTerms(other.TermSet) {
+	var termMatchCounter float32
+	var termCountAcc int
+	for term := range other.TermSet {
+		if groupTerm := lg.TermSet[term]; groupTerm != nil {
+			termMatchCounter++
+			termCountAcc += groupTerm.Counter
+		}
+	}
+
+	//termMatchCountGrade := termMatchCounter / float32(len(lg.TermSet))
+	termWeightedGrade := float32(termCountAcc) / float32(lg.totalTermsConsumed)
+	//fmt.Printf("termMatchCountGrade: %f weighted: %f\n", termMatchCountGrade, termWeightedGrade)
+
+	// do the actual merging of the smaller group into the large one:
+	if termWeightedGrade > lg.acceptanceThreshold {
+		return true
 		lg.LineCount += other.LineCount
 
-		return true
+		for _, oterm := range other.TermSet {
+			lg.TermSet[oterm.Term].Counter += oterm.Counter
+		}
+		for line := range other.lines {
+			lg.lines[line] = true
+		}
 	}
 	return false
 }
@@ -127,36 +149,17 @@ func (lg *LineGroup) tryPruneTerms() bool {
 			delete(lg.TermSet, term1.Term)
 			//decrease term count
 			lg.TermCount--
-			lg.generateTemplate()
+			lg.generateTemplate(false)
 		}
 	}
 	lg.pruneCounter++
-	lg.pruneCycle += 3
+	lg.pruneCycle += lg.pruneCycleWidening
 	return true
 }
 
-func (lg *LineGroup) CanAddByTerms(terms map[string]*LineTerm) bool {
-	var termMatchCounter float32
-	var termCountAcc int
-	for term := range terms {
-		if groupTerm := lg.TermSet[term]; groupTerm != nil {
-			termMatchCounter++
-			termCountAcc += groupTerm.Counter
-		}
-	}
-
-	//termMatchCountGrade := termMatchCounter / float32(len(lg.TermSet))
-	termWeightedGrade := float32(termCountAcc) / float32(lg.totalTermsConsumed)
-	//fmt.Printf("termMatchCountGrade: %f weighted: %f\n", termMatchCountGrade, termWeightedGrade)
-
-	if termWeightedGrade > lg.acceptanceThreshold {
-		return true
-	}
-	return false
-}
-
 // TryAddLine adds a line to the group if it fits the group term profile
-func (lg *LineGroup) TryAddLine(terms []string) bool {
+func (lg *LineGroup) TryAddLine(line common.LogLine) bool {
+	terms := line.GetTerms()
 	//var termMatchCounter float32
 	var termCountAcc int
 	seenTerms := map[string]bool{}
@@ -199,7 +202,7 @@ func (lg *LineGroup) TryAddLine(terms []string) bool {
 
 }
 
-func (lg *LineGroup) generateTemplate() {
+func (lg *LineGroup) generateTemplate(preserveStructure bool) {
 	if len(lg.lines) == 0 {
 		return
 	}
@@ -210,14 +213,19 @@ func (lg *LineGroup) generateTemplate() {
 	}
 
 	//logger.Debug(">>>>>>> line:" + line)
+	if !preserveStructure {
+		lg.Template = "*"
+	}
 
-	lg.Template = "*"
 	tokens := SplitWithMultiDelims(line, "`:\\/;'=-_+~<>[]{}!@#$%^&*().,?\"| \t\n")
 	for _, t := range tokens {
 		if groupTerm := lg.TermSet[t]; groupTerm != nil {
 			//replace all
-			//lg.Template = strings.Replace(lg.Template, t, "*", 1)
-			lg.Template += groupTerm.Term + "*"
+			if preserveStructure {
+				lg.Template = strings.Replace(lg.Template, t, "*", 1)
+			} else {
+				lg.Template += groupTerm.Term + "*"
+			}
 		}
 	}
 	//logger.Debug(">>>>>>> temp:" + lg.Template)

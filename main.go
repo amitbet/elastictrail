@@ -1,6 +1,7 @@
 package main
 
 import (
+	"elastictrail/logger"
 	"elastictrail/reader"
 	"encoding/json"
 	"flag"
@@ -9,7 +10,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"vncproxy/logger"
 )
 
 func main() {

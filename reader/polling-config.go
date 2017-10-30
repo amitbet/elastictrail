@@ -2,8 +2,8 @@ package reader
 
 import (
 	"elastictrail/consumer"
+	"elastictrail/logger"
 	"net/http"
-	"vncproxy/logger"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
